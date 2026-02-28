@@ -81,7 +81,7 @@ WSGI_APPLICATION = 'miniproyectoI.wsgi.application'
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('postgresql://postgres:[YOUR-PASSWORD]@db.xrbedborwyvaowwxbfsu.supabase.co:5432/postgres')
+        default=os.environ.get("DATABASE_URL")
     )
 }
 
