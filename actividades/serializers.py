@@ -10,14 +10,14 @@ class SubtareaSerializer(serializers.ModelSerializer):
 
 
 class ActividadSerializer(serializers.ModelSerializer):
-    subtareas = SubtareaSerializer(many=True)
+    subtareas = SubtareaSerializer(many=True, required=False)
 
     class Meta:
         model = Actividad
         fields = "__all__"
 
     def create(self, validated_data):
-        subtareas_data = validated_data.pop("subtareas")
+        subtareas_data = validated_data.pop("subtareas", [])
         actividad = Actividad.objects.create(**validated_data)
 
         for sub in subtareas_data:
