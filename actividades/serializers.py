@@ -1,9 +1,26 @@
 # serializers.py
 
 from rest_framework import serializers
-from .models import Actividad
+from .models import Actividad, Subtarea
+
+class SubtareaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subtarea
+        fields = "__all__"
+
 
 class ActividadSerializer(serializers.ModelSerializer):
+    subtareas = SubtareaSerializer(many=True)
+
     class Meta:
         model = Actividad
-        fields = '__all__'
+        fields = "__all__"
+
+    def create(self, validated_data):
+        subtareas_data = validated_data.pop("subtareas")
+        actividad = Actividad.objects.create(**validated_data)
+
+        for sub in subtareas_data:
+            Subtarea.objects.create(actividad=actividad, **sub)
+
+        return actividad
