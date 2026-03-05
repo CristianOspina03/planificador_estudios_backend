@@ -8,7 +8,7 @@ class SubtareaSerializer(serializers.ModelSerializer):
         model = Subtarea
         fields = "__all__"
         extra_kwargs = {
-            "actividad": {"required": False}
+            "actividad": {"read_only": True}
         }
 
 
