@@ -1,8 +1,15 @@
 # models.py
 from django.db import models
+from django.contrib.auth.models import User
 
 
 class Actividad(models.Model):
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="actividades"
+    )
+        
     titulo = models.CharField(max_length=200)
     curso = models.CharField(max_length=200, blank=True, null=True)
     descripcion = models.TextField(blank=True, null=True)

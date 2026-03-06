@@ -20,6 +20,9 @@ class ActividadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Actividad
         fields = "__all__"
+        extra_kwargs = {
+            "usuario": {"read_only": True}
+        }
 
     def create(self, validated_data):
         subtareas_data = validated_data.pop("subtareas", [])
