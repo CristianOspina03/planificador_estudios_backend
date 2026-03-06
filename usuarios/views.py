@@ -1,7 +1,5 @@
-from django.shortcuts import render
-
-# Create your views here.
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
@@ -11,6 +9,7 @@ from rest_framework.authtoken.models import Token
 class LoginView(APIView):
 
     def post(self, request):
+
         username = request.data.get("username")
         password = request.data.get("password")
 
@@ -23,4 +22,34 @@ class LoginView(APIView):
         return Response(
             {"error": "Credenciales incorrectas"},
             status=status.HTTP_401_UNAUTHORIZED
+        )
+
+
+class RegisterView(APIView):
+
+    def post(self, request):
+
+        username = request.data.get("username")
+        password = request.data.get("password")
+
+        if not username or not password:
+            return Response(
+                {"error": "Username y password son requeridos"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if User.objects.filter(username=username).exists():
+            return Response(
+                {"error": "El usuario ya existe"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = User.objects.create_user(
+            username=username,
+            password=password
+        )
+
+        return Response(
+            {"message": "Usuario creado correctamente"},
+            status=status.HTTP_201_CREATED
         )
