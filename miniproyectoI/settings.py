@@ -37,6 +37,7 @@ ALLOWED_HOSTS = [
 
 INSTALLED_APPS = [
     'rest_framework',
+    'rest_framework.authtoken',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
     "corsheaders",
 
     'actividades',
+    'usuarios',
 ]
 
 MIDDLEWARE = [
@@ -81,13 +83,7 @@ WSGI_APPLICATION = 'miniproyectoI.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-"""
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get("DATABASE_URL")
-    )
-}
-"""
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 if os.environ.get("DATABASE_URL"):

@@ -1,9 +1,10 @@
 # serializers.py
-
 from rest_framework import serializers
 from .models import Actividad, Subtarea
 
+
 class SubtareaSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Subtarea
         fields = "__all__"
@@ -13,6 +14,7 @@ class SubtareaSerializer(serializers.ModelSerializer):
 
 
 class ActividadSerializer(serializers.ModelSerializer):
+
     subtareas = SubtareaSerializer(many=True, required=False)
 
     class Meta:
@@ -25,21 +27,21 @@ class ActividadSerializer(serializers.ModelSerializer):
 
         for sub in subtareas_data:
             Subtarea.objects.create(actividad=actividad, **sub)
-    
+
         return actividad
-    
+
     def update(self, instance, validated_data):
-        # 1. Extraemos las subtareas (si vienen en el JSON)
+
         subtareas_data = validated_data.pop("subtareas", None)
-        
-        # 2. Actualizamos los campos de la Actividad (Soporta PATCH)
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
         instance.save()
 
-        # 3. Solo si enviaste 'subtareas', las actualizamos
         if subtareas_data is not None:
             instance.subtareas.all().delete()
+
             for sub in subtareas_data:
                 Subtarea.objects.create(actividad=instance, **sub)
 
