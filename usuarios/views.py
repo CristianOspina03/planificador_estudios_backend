@@ -31,6 +31,9 @@ class RegisterView(APIView):
 
         username = request.data.get("username")
         password = request.data.get("password")
+        email = request.data.get("email")
+        first_name = request.data.get("first_name")
+        last_name = request.data.get("last_name")
 
         if not username or not password:
             return Response(
