@@ -13,8 +13,8 @@ from django.db import models
 
 class Actividad(models.Model):
     titulo = models.CharField(max_length=200)
-    curso = models.CharField(max_length=200)
-    descripcion = models.CharField(max_length=200)
+    curso = models.CharField(max_length=200, blank=True, null=True)
+    descripcion = models.TextField(blank=True, null=True)
     fecha = models.DateField()
     hora_inicio = models.TimeField()
     hora_fin = models.TimeField()
