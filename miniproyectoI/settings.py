@@ -86,24 +86,13 @@ WSGI_APPLICATION = 'miniproyectoI.wsgi.application'
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-if os.environ.get("DATABASE_URL"):
-    # 🔵 PRODUCCIÓN (Render → Supabase PostgreSQL)
-    DATABASES = {
-        'default': dj_database_url.parse(os.environ.get("DATABASE_URL"))
-    }
-else:
-    # 🟢 LOCAL (XAMPP → MySQL)
-    """
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': 'planificador_estudios',
-            'USER': 'root',
-            'PASSWORD': '',
-            'HOST': '127.0.0.1',
-            'PORT': '3306',
-        }
-    }"""
+DATABASES = {
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
