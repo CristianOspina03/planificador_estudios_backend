@@ -6,13 +6,23 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
 
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
 
-        username = request.data.get("username")
+        email = request.data.get("email")
         password = request.data.get("password")
+
+        try:
+            user_obj = User.objects.get(email=email)
+            username = user_obj.username
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Credenciales incorrectas"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
         user = authenticate(username=username, password=password)
 
@@ -25,34 +35,32 @@ class LoginView(APIView):
             status=status.HTTP_401_UNAUTHORIZED
         )
 
-
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
 
-        username = request.data.get("username")
-        password = request.data.get("password")
         email = request.data.get("email")
+        password = request.data.get("password")
         first_name = request.data.get("first_name")
         last_name = request.data.get("last_name")
 
-        if not username or not password:
+        if not email or not password:
             return Response(
-                {"error": "Username y password son requeridos"},
+                {"error": "Email y password son requeridos"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        if User.objects.filter(username=username).exists():
+        if User.objects.filter(email=email).exists():
             return Response(
-                {"error": "El usuario ya existe"},
+                {"error": "El correo ya está registrado"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         user = User.objects.create_user(
-            username=username,
-            password=password,
+            username=email,  # <- truco importante
             email=email,
+            password=password,
             first_name=first_name,
             last_name=last_name
         )
