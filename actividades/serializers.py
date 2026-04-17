@@ -8,9 +8,6 @@ class SubtareaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subtarea
         fields = "__all__"
-        extra_kwargs = {
-            "actividad": {"read_only": True}
-        }
     def validate(self, data):
         if not data.get("titulo"):
             raise serializers.ValidationError(
