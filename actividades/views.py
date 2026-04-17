@@ -116,23 +116,6 @@ class ActividadViewSet(ModelViewSet):
             "proximas": SubtareaSerializer(proximas, many=True).data,
         })
 
-    # ✅ Completar subtarea
-    @action(detail=True, methods=["patch"])
-    def completar_subtarea(self, request, pk=None):
-
-        subtarea_id = request.data.get("subtarea_id")
-
-        try:
-            sub = Subtarea.objects.get(
-                id=subtarea_id,
-                actividad__usuario=request.user
-            )
-            sub.completada = True
-            sub.save()
-            return Response({"mensaje": "Subtarea completada"})
-        except Subtarea.DoesNotExist:
-            return Response({"error": "Subtarea no encontrada"}, status=404)
-
     # ✅ Progreso de actividad
     @action(detail=True, methods=["get"])
     def progreso(self, request, pk=None):
