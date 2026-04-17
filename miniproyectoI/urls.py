@@ -21,6 +21,6 @@ from actividades.views import ActividadViewSet
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('actividades/', include('actividades.urls')),
+    path('api/', include('actividades.urls')),
     path("auth/", include("usuarios.urls")),
 ]

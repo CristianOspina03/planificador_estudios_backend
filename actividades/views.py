@@ -132,3 +132,15 @@ class ActividadViewSet(ModelViewSet):
         return Response({
             "mensaje": "Actividad pospuesta para el día siguiente"
         })
+
+class SubtareaViewSet(ModelViewSet):
+    serializer_class = SubtareaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Subtarea.objects.filter(
+            actividad__usuario=self.request.user
+        ).order_by("fecha_objetivo", "horas")
+
+    def perform_create(self, serializer):
+        serializer.save()
