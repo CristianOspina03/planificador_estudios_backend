@@ -4,6 +4,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from datetime import date
 
 from .models import Actividad, Subtarea
 from .serializers import ActividadSerializer, SubtareaSerializer
@@ -18,12 +19,40 @@ class ActividadViewSet(ModelViewSet):
         serializer.save(usuario=self.request.user)
 
     def get_queryset(self):
-        return (
+        queryset = (
             Actividad.objects
             .filter(usuario=self.request.user)
             .prefetch_related("subtareas")
             .order_by("fecha", "hora_inicio")
         )
+
+        # 🔍 QUERY PARAMS DEL FRONT
+        fecha = self.request.query_params.get("fecha")
+        buscar = self.request.query_params.get("buscar")
+        estado = self.request.query_params.get("estado")
+
+        # 📅 Filtro por fecha exacta
+        if fecha:
+            queryset = queryset.filter(fecha=fecha)
+
+        # 🔎 Buscador por título o curso
+        if buscar:
+            queryset = queryset.filter(
+                titulo__icontains=buscar
+            ) | queryset.filter(
+                curso__icontains=buscar
+            )
+
+        # 🚦 Filtro por estado temporal
+        hoy = date.today()
+
+        if estado == "proximas":
+            queryset = queryset.filter(fecha__gte=hoy)
+
+        elif estado == "vencidas":
+            queryset = queryset.filter(fecha__lt=hoy)
+
+        return queryset
 
     # 🧭 Vista ejecutiva (macro por actividades)
     @action(detail=False, methods=["get"])
