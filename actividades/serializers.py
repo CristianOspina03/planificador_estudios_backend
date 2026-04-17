@@ -4,6 +4,8 @@ from .models import Actividad, Subtarea
 
 
 class SubtareaSerializer(serializers.ModelSerializer):
+    actividad_titulo = serializers.CharField(source="actividad.titulo", read_only=True)
+    curso = serializers.CharField(source="actividad.curso", read_only=True)
 
     class Meta:
         model = Subtarea
