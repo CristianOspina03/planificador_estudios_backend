@@ -8,6 +8,7 @@ from datetime import date
 
 from .models import Actividad, Subtarea
 from .serializers import ActividadSerializer, SubtareaSerializer
+from django.db.models import Q
 
 
 class ActividadViewSet(ModelViewSet):
@@ -95,7 +96,10 @@ class ActividadViewSet(ModelViewSet):
 
         # Filtro por curso (US-05)
         if curso:
-            subtareas = subtareas.filter(actividad__curso=curso)
+            subtareas = subtareas.filter(
+                Q(actividad__curso__icontains=curso) |
+                Q(titulo__icontains=curso)
+            )
 
         vencidas = subtareas.filter(
             fecha_objetivo__lt=hoy
