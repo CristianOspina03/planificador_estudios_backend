@@ -7,7 +7,7 @@ class SubtareaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Subtarea
-        fields = "__all__"
+        exclude = ["actividad"]
     def validate(self, data):
         if "titulo" in data and not data.get("titulo"):
             raise serializers.ValidationError(
