@@ -7,6 +7,28 @@ class SubtareaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Subtarea
+        fields = "__all__"
+    def validate(self, data):
+        if "titulo" in data and not data.get("titulo"):
+            raise serializers.ValidationError(
+                "El nombre de la subtarea es obligatorio."
+            )
+
+        if "horas" in data and data.get("horas", 0) <= 0:
+            raise serializers.ValidationError(
+                "Las horas de una subtarea deben ser mayores a 0."
+            )
+
+        if "fecha_objetivo" in data and not data.get("fecha_objetivo"):
+            raise serializers.ValidationError(
+                "La fecha objetivo es obligatoria."
+            )
+
+        return data
+class SubtareaNestedSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Subtarea
         exclude = ["actividad"]
     def validate(self, data):
         if "titulo" in data and not data.get("titulo"):
@@ -26,10 +48,9 @@ class SubtareaSerializer(serializers.ModelSerializer):
 
         return data
 
-
 class ActividadSerializer(serializers.ModelSerializer):
 
-    subtareas = SubtareaSerializer(many=True, required=False)
+    subtareas = SubtareaNestedSerializer(many=True, required=False)
 
     class Meta:
         model = Actividad
