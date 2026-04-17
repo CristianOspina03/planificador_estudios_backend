@@ -15,6 +15,9 @@ class ActividadViewSet(ModelViewSet):
     serializer_class = ActividadSerializer
     permission_classes = [IsAuthenticated]
 
+    def perform_create(self, serializer):
+        serializer.save(usuario=self.request.user)
+
     def get_queryset(self):
         return (
             Actividad.objects
