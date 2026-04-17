@@ -12,10 +12,21 @@ class SubtareaSerializer(serializers.ModelSerializer):
             "actividad": {"read_only": True}
         }
     def validate(self, data):
+        if not data.get("titulo"):
+            raise serializers.ValidationError(
+                "El nombre de la subtarea es obligatorio."
+            )
+
         if data.get("horas", 0) <= 0:
             raise serializers.ValidationError(
                 "Las horas de una subtarea deben ser mayores a 0."
             )
+
+        if not data.get("fecha_objetivo"):
+            raise serializers.ValidationError(
+                "La fecha objetivo es obligatoria."
+            )
+
         return data
 
 
