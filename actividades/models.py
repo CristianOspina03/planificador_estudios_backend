@@ -18,6 +18,10 @@ class Actividad(models.Model):
     hora_fin = models.TimeField()
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ["fecha", "hora_inicio"]
+
+
     def __str__(self):
         return self.titulo
 
@@ -31,6 +35,9 @@ class Subtarea(models.Model):
     titulo = models.CharField(max_length=200)
     fecha = models.DateField()
     horas = models.IntegerField()
+
+    class Meta:
+        ordering = ["fecha"]
 
     def __str__(self):
         return self.titulo
