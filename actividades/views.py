@@ -9,6 +9,8 @@ from rest_framework.response import Response
 from datetime import date
 from django.db.models import Sum, F, ExpressionWrapper, DurationField
 from datetime import datetime
+from rest_framework.decorators import action
+
 
 class ActividadViewSet(ModelViewSet):
 
@@ -54,3 +56,41 @@ class ActividadViewSet(ModelViewSet):
             "hoy": serialize(para_hoy),
             "proximas": serialize(proximas),
         })
+    @action(detail=True, methods=["patch"])
+    def completar_subtarea(self, request, pk=None):
+        subtarea_id = request.data.get("subtarea_id")
+
+        from .models import Subtarea
+
+        try:
+            sub = Subtarea.objects.get(id=subtarea_id, actividad__usuario=request.user)
+            sub.completada = True
+            sub.save()
+            return Response({"mensaje": "Subtarea completada"})
+        except Subtarea.DoesNotExist:
+            return Response({"error": "Subtarea no encontrada"}, status=404)
+    
+    @action(detail=True, methods=["get"])
+    def progreso(self, request, pk=None):
+        actividad = self.get_object()
+
+        total = actividad.subtareas.count()
+        completas = actividad.subtareas.filter(completada=True).count()
+
+        porcentaje = 0
+        if total > 0:
+            porcentaje = (completas / total) * 100
+
+        return Response({
+            "total_subtareas": total,
+            "completadas": completas,
+            "progreso": porcentaje
+        })
+    from datetime import timedelta
+
+    @action(detail=True, methods=["patch"])
+    def posponer(self, request, pk=None):
+        actividad = self.get_object()
+        actividad.fecha = actividad.fecha + timedelta(days=1)
+        actividad.save()
+        return Response({"mensaje": "Actividad pospuesta para el día siguiente"})
