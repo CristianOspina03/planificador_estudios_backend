@@ -69,6 +69,17 @@ class ActividadSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "La hora_fin debe ser mayor que la hora_inicio."
                 )
+        fecha_actividad = data.get("fecha")
+        subtareas = self.initial_data.get("subtareas", [])
+
+        if fecha_actividad and subtareas:
+            for sub in subtareas:
+                fecha_sub = sub.get("fecha_objetivo")
+
+                if fecha_sub and fecha_sub > str(fecha_actividad):
+                        raise serializers.ValidationError(
+                            f"La subtarea '{sub.get('titulo')}' no puede tener fecha posterior a la actividad"
+                        )
         return data
 
     def create(self, validated_data):
@@ -83,6 +94,14 @@ class ActividadSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
 
         subtareas_data = validated_data.pop("subtareas", None)
+        fecha_actividad = validated_data.get("fecha", instance.fecha)
+
+        if subtareas_data:
+            for sub in subtareas_data:
+                if sub.get("fecha_objetivo") > str(fecha_actividad):
+                        raise serializers.ValidationError(
+                            f"La subtarea '{sub.get('titulo')}' no puede tener fecha posterior a la actividad"
+                        )
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
