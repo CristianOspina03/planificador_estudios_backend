@@ -11,6 +11,12 @@ class SubtareaSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "actividad": {"read_only": True}
         }
+    def validate(self, data):
+        if data.get("horas", 0) <= 0:
+            raise serializers.ValidationError(
+                "Las horas de una subtarea deben ser mayores a 0."
+            )
+        return data
 
 
 class ActividadSerializer(serializers.ModelSerializer):
@@ -23,6 +29,16 @@ class ActividadSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "usuario": {"read_only": True}
         }
+    def validate(self, data):
+        hora_inicio = data.get("hora_inicio")
+        hora_fin = data.get("hora_fin")
+
+        if hora_inicio and hora_fin:
+            if hora_fin <= hora_inicio:
+                raise serializers.ValidationError(
+                    "La hora_fin debe ser mayor que la hora_inicio."
+                )
+        return data
 
     def create(self, validated_data):
         subtareas_data = validated_data.pop("subtareas", [])
