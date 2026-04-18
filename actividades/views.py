@@ -6,11 +6,12 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from datetime import date
 
-from .models import Actividad, Subtarea
-from .serializers import ActividadSerializer, SubtareaSerializer
+from .models import Actividad, Subtarea, Perfil
+from .serializers import ActividadSerializer, SubtareaSerializer, PerfilSerializer
 from django.db.models import Q
 from django.db.models import Sum
 
+from rest_framework.views import APIView
 
 class ActividadViewSet(ModelViewSet):
 
@@ -118,7 +119,7 @@ class ActividadViewSet(ModelViewSet):
             total=Sum("horas")
         )["total"] or 0
 
-        limite = getattr(request.user, "limite_horas", 6)
+        limite = Perfil.objects.get(user=request.user).limite_diario
 
         sobrecarga = horas_hoy > limite
 
@@ -158,7 +159,7 @@ class ActividadViewSet(ModelViewSet):
         modo = request.data.get("modo", "actividad")  
         # "actividad" | "subtareas"
 
-        limite = getattr(request.user, "limite_horas", 6)
+        limite = Perfil.objects.get(user=request.user).limite_diario
 
         # 🔹 SOLO MOVER ACTIVIDAD (sin tocar subtareas)
         if modo == "actividad":
@@ -220,7 +221,7 @@ class ActividadViewSet(ModelViewSet):
     def auto_reprogramar(self, request, pk=None):
         actividad = self.get_object()
 
-        limite = getattr(request.user, "limite_horas", 6)
+        limite = Perfil.objects.get(user=request.user).limite_diario
 
         fecha = date.today()
 
@@ -247,3 +248,30 @@ class ActividadViewSet(ModelViewSet):
             "ok": True,
             "nueva_fecha": fecha
         })
+    
+class SubtareaViewSet(ModelViewSet):
+    queryset = Subtarea.objects.all()
+    serializer_class = SubtareaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Subtarea.objects.filter(
+            actividad__usuario=self.request.user
+        )
+    
+class LimiteDiarioView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        perfil = Perfil.objects.get(user=request.user)
+        serializer = PerfilSerializer(perfil)
+        return Response(serializer.data)
+
+    def patch(self, request):
+        perfil = Perfil.objects.get(user=request.user)
+        serializer = PerfilSerializer(
+            perfil, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

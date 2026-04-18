@@ -1,6 +1,6 @@
 # serializers.py
 from rest_framework import serializers
-from .models import Actividad, Subtarea
+from .models import Actividad, Subtarea, Perfil
 from datetime import datetime
 
 
@@ -97,3 +97,15 @@ class ActividadSerializer(serializers.ModelSerializer):
                 Subtarea.objects.create(actividad=instance, **sub)
 
         return instance
+
+class PerfilSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Perfil
+        fields = ["limite_diario"]
+
+    def validate_limite_diario(self, value):
+        if value < 1 or value > 16:
+            raise serializers.ValidationError(
+                "El límite debe estar entre 1 y 16 horas."
+            )
+        return value
