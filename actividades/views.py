@@ -224,15 +224,25 @@ class ActividadViewSet(ModelViewSet):
         limite = Perfil.objects.get(user=request.user).limite_diario
 
         fecha = date.today()
+        dias_revisados = []
+
+        horas_actividad = actividad.subtareas.filter(
+            completada=False
+        ).aggregate(total=Sum("horas"))["total"] or 0
 
         while True:
-            horas = Subtarea.objects.filter(
+            horas_dia = Subtarea.objects.filter(
                 actividad__usuario=request.user,
                 fecha_objetivo=fecha,
                 completada=False
             ).aggregate(total=Sum("horas"))["total"] or 0
 
-            if horas < limite:
+            dias_revisados.append({
+                "fecha": fecha,
+                "horas_en_dia": horas_dia
+            })
+
+            if (horas_dia + horas_actividad) <= limite:
                 break
 
             fecha += timedelta(days=1)
@@ -246,7 +256,11 @@ class ActividadViewSet(ModelViewSet):
 
         return Response({
             "ok": True,
-            "nueva_fecha": fecha
+            "nueva_fecha": fecha,
+            "horas_actividad": horas_actividad,
+            "limite": limite,
+            "analisis": dias_revisados,
+            "mensaje": "Se movió al primer día que no supera el límite diario"
         })
     
 class SubtareaViewSet(ModelViewSet):
