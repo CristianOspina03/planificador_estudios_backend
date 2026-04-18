@@ -9,6 +9,7 @@ from datetime import date
 from .models import Actividad, Subtarea
 from .serializers import ActividadSerializer, SubtareaSerializer
 from django.db.models import Q
+from django.db.models import Sum
 
 
 class ActividadViewSet(ModelViewSet):
@@ -94,7 +95,6 @@ class ActividadViewSet(ModelViewSet):
             completada=False
         )
 
-        # Filtro por curso (US-05)
         if curso:
             subtareas = subtareas.filter(
                 Q(actividad__curso__icontains=curso) |
@@ -113,8 +113,22 @@ class ActividadViewSet(ModelViewSet):
             fecha_objetivo__gt=hoy
         ).order_by("fecha_objetivo", "horas")
 
+        # 🔥 NUEVO: cálculo de horas
+        horas_hoy = para_hoy.aggregate(
+            total=Sum("horas")
+        )["total"] or 0
+
+        limite = getattr(request.user, "limite_horas", 6)
+
+        sobrecarga = horas_hoy > limite
+
         return Response({
-            "regla": "Vencidas por fecha más antigua, luego Hoy, luego Próximas por fecha más cercana. Empate por menor esfuerzo.",
+            "resumen": {
+                "horas_hoy": horas_hoy,
+                "limite": limite,
+                "sobrecarga": sobrecarga
+            },
+            "regla": "Vencidas → Hoy → Próximas. Orden por fecha y menor esfuerzo.",
             "vencidas": SubtareaSerializer(vencidas, many=True).data,
             "hoy": SubtareaSerializer(para_hoy, many=True).data,
             "proximas": SubtareaSerializer(proximas, many=True).data,
@@ -137,26 +151,99 @@ class ActividadViewSet(ModelViewSet):
             "progreso": porcentaje
         })
 
-    # ✅ Posponer actividad
     @action(detail=True, methods=["patch"])
-    def posponer(self, request, pk=None):
-
+    def reprogramar(self, request, pk=None):
         actividad = self.get_object()
-        actividad.fecha = actividad.fecha + timedelta(days=1)
+        nueva_fecha = request.data.get("fecha")
+        modo = request.data.get("modo", "actividad")  
+        # "actividad" | "subtareas"
+
+        limite = getattr(request.user, "limite_horas", 6)
+
+        # 🔹 SOLO MOVER ACTIVIDAD (sin tocar subtareas)
+        if modo == "actividad":
+            actividad.fecha = nueva_fecha
+            actividad.save()
+
+            return Response({
+                "ok": True,
+                "modo": "actividad",
+                "mensaje": "Fecha de actividad actualizada",
+                "actividad": self.get_serializer(actividad).data
+            })
+
+        # 🔹 MOVER SUBTAREAS (inteligente)
+        subtareas = actividad.subtareas.filter(completada=False)
+
+        horas_subtareas = subtareas.aggregate(
+            total=Sum("horas")
+        )["total"] or 0
+
+        horas_dia_destino = Subtarea.objects.filter(
+            actividad__usuario=request.user,
+            fecha_objetivo=nueva_fecha,
+            completada=False
+        ).aggregate(total=Sum("horas"))["total"] or 0
+
+        conflicto = (horas_dia_destino + horas_subtareas) > limite
+
+        if conflicto:
+            return Response({
+                "conflicto": True,
+                "mensaje": "Sobrecarga detectada",
+                "horas_actuales_dia": horas_dia_destino,
+                "horas_a_mover": horas_subtareas,
+                "limite": limite,
+                "exceso": (horas_dia_destino + horas_subtareas) - limite,
+
+                # 🔥 OPCIONES (UX CLAVE)
+                "opciones": [
+                    "Mover solo parte de las subtareas",
+                    "Mover al siguiente día disponible",
+                    "Reducir carga de horas"
+                ]
+            })
+
+        # ✅ SIN CONFLICTO → mover todo
+        subtareas.update(fecha_objetivo=nueva_fecha)
+
+        actividad.fecha = nueva_fecha
         actividad.save()
 
         return Response({
-            "mensaje": "Actividad pospuesta para el día siguiente"
+            "ok": True,
+            "modo": "subtareas",
+            "mensaje": "Subtareas reprogramadas correctamente"
         })
 
-class SubtareaViewSet(ModelViewSet):
-    serializer_class = SubtareaSerializer
-    permission_classes = [IsAuthenticated]
+    @action(detail=True, methods=["patch"])
+    def auto_reprogramar(self, request, pk=None):
+        actividad = self.get_object()
 
-    def get_queryset(self):
-        return Subtarea.objects.filter(
-            actividad__usuario=self.request.user
-        ).order_by("fecha_objetivo", "horas")
+        limite = getattr(request.user, "limite_horas", 6)
 
-    def perform_create(self, serializer):
-        serializer.save()
+        fecha = date.today()
+
+        while True:
+            horas = Subtarea.objects.filter(
+                actividad__usuario=request.user,
+                fecha_objetivo=fecha,
+                completada=False
+            ).aggregate(total=Sum("horas"))["total"] or 0
+
+            if horas < limite:
+                break
+
+            fecha += timedelta(days=1)
+
+        actividad.subtareas.filter(completada=False).update(
+            fecha_objetivo=fecha
+        )
+
+        actividad.fecha = fecha
+        actividad.save()
+
+        return Response({
+            "ok": True,
+            "nueva_fecha": fecha
+        })

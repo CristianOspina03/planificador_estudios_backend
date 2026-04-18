@@ -54,3 +54,11 @@ class Subtarea(models.Model):
 
     def __str__(self):
         return self.titulo
+
+
+class Perfil(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    limite_diario = models.IntegerField(default=6)
+
+    def __str__(self):
+        return f"Perfil de {self.user.username}"
