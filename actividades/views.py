@@ -254,14 +254,20 @@ class ActividadViewSet(ModelViewSet):
                 "id": f"A{act.id}",
                 "title": f"{act.titulo} ({act.curso})",
                 "date": act.fecha,
+                "extendedProps": {
+                    "tipo": "actividad"
+                }
             })
 
             # Eventos de subtareas
             for sub in act.subtareas.all():
                 eventos.append({
                     "id": f"S{sub.id}",
-                    "title": f"↳ {sub.titulo} • {sub.horas}h",
+                    "title": f"{sub.titulo} • {sub.horas}h",
                     "date": sub.fecha_objetivo,
+                    "extendedProps": {
+                        "tipo": "subtarea"
+                    }
                 })
 
         return Response(eventos)
