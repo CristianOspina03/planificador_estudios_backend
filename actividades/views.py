@@ -238,6 +238,33 @@ class ActividadViewSet(ModelViewSet):
             "analisis": dias_revisados,
             "mensaje": "Se movió al primer día que no supera el límite diario"
         })
+    # 📅 Eventos para calendario
+    @action(detail=False, methods=["get"])
+    def calendario(self, request):
+
+        actividades = Actividad.objects.filter(
+            usuario=request.user
+        ).prefetch_related("subtareas")
+
+        eventos = []
+
+        for act in actividades:
+            # Evento principal de la actividad
+            eventos.append({
+                "id": f"A{act.id}",
+                "title": f"{act.titulo} ({act.curso})",
+                "date": act.fecha,
+            })
+
+            # Eventos de subtareas
+            for sub in act.subtareas.all():
+                eventos.append({
+                    "id": f"S{sub.id}",
+                    "title": f"↳ {sub.titulo} • {sub.horas}h",
+                    "date": sub.fecha_objetivo,
+                })
+
+        return Response(eventos)
     
 class SubtareaViewSet(ModelViewSet):
     queryset = Subtarea.objects.all()
