@@ -41,10 +41,11 @@ class ActividadViewSet(ModelViewSet):
         # 🔎 Buscador por título o curso
         if buscar:
             queryset = queryset.filter(
-                titulo__icontains=buscar
-            ) | queryset.filter(
-                curso__icontains=buscar
+                Q(titulo__icontains=buscar) |
+                Q(curso__icontains=buscar) |
+                Q(tipo__icontains=buscar)  
             )
+
 
         # 🚦 Filtro por estado temporal
         hoy = date.today()
@@ -89,17 +90,19 @@ class ActividadViewSet(ModelViewSet):
     def hoy(self, request):
 
         hoy = date.today()
-        curso = request.query_params.get("curso")
+        buscar = request.query_params.get("buscar")
 
         subtareas = Subtarea.objects.filter(
             actividad__usuario=request.user,
             completada=False
         )
 
-        if curso:
+        if buscar:
             subtareas = subtareas.filter(
-                Q(actividad__curso__icontains=curso) |
-                Q(titulo__icontains=curso)
+                Q(actividad__curso__icontains=buscar) |
+                Q(actividad__titulo__icontains=buscar) |
+                Q(actividad__tipo__icontains=buscar) |
+                Q(titulo__icontains=buscar)
             )
 
         vencidas = subtareas.filter(
