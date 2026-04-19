@@ -5,8 +5,11 @@ from datetime import datetime
 
 
 class SubtareaSerializer(serializers.ModelSerializer):
+    actividad_id = serializers.IntegerField(source="actividad.id", read_only=True)
     actividad_titulo = serializers.CharField(source="actividad.titulo", read_only=True)
     curso = serializers.CharField(source="actividad.curso", read_only=True)
+    tipo = serializers.CharField(source="actividad.tipo", read_only=True)
+    fecha_actividad = serializers.DateField(source="actividad.fecha", read_only=True)
 
     class Meta:
         model = Subtarea

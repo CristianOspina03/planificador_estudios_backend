@@ -58,33 +58,6 @@ class ActividadViewSet(ModelViewSet):
 
         return queryset
 
-    # 🧭 Vista ejecutiva (macro por actividades)
-    @action(detail=False, methods=["get"])
-    def resumen_hoy(self, request):
-
-        hoy = date.today()
-        actividades = self.get_queryset()
-
-        vencidas = actividades.filter(fecha__lt=hoy)
-        para_hoy = actividades.filter(fecha=hoy)
-        proximas = actividades.filter(fecha__gt=hoy)
-
-        horas_hoy = 0
-        for a in para_hoy:
-            inicio = datetime.combine(a.fecha, a.hora_inicio)
-            fin = datetime.combine(a.fecha, a.hora_fin)
-            horas_hoy += (fin - inicio).total_seconds() / 3600
-
-        return Response({
-            "resumen_hoy": {
-                "horas_planificadas": horas_hoy,
-                "total_actividades": para_hoy.count()
-            },
-            "vencidas": ActividadSerializer(vencidas, many=True).data,
-            "hoy": ActividadSerializer(para_hoy, many=True).data,
-            "proximas": ActividadSerializer(proximas, many=True).data,
-        })
-
     # ✅ US-04 y US-05 — Vista REAL /hoy basada en SUBTAREAS
     @action(detail=False, methods=["get"])
     def hoy(self, request):
@@ -92,7 +65,7 @@ class ActividadViewSet(ModelViewSet):
         hoy = date.today()
         buscar = request.query_params.get("buscar")
 
-        subtareas = Subtarea.objects.filter(
+        subtareas = Subtarea.objects.select_related("actividad").filter(
             actividad__usuario=request.user,
             completada=False
         )
