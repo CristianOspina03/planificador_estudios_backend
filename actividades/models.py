@@ -12,23 +12,12 @@ class Actividad(models.Model):
         
     titulo = models.CharField(max_length=200)
     curso = models.CharField(max_length=200, blank=True, null=True)
+    tipo = models.CharField(max_length=200, blank=True, null=True)
     descripcion = models.TextField(blank=True, null=True)
     fecha = models.DateField()
     hora_inicio = models.TimeField()
     hora_fin = models.TimeField()
     fecha_creacion = models.DateTimeField(auto_now_add=True)
-    TIPO_CHOICES = [
-        ("examen", "Examen"),
-        ("quiz", "Quiz"),
-        ("taller", "Taller"),
-        ("proyecto", "Proyecto"),
-        ("otro", "Otro"),
-    ]
-
-    tipo = models.CharField(
-        max_length=20,
-        choices=TIPO_CHOICES
-    )
 
     class Meta:
         ordering = ["fecha", "hora_inicio"]
