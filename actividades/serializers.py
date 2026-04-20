@@ -101,10 +101,20 @@ class ActividadSerializer(serializers.ModelSerializer):
 
         return instance
 
+from rest_framework import serializers
+from .models import Perfil
+
 class PerfilSerializer(serializers.ModelSerializer):
+    email = serializers.CharField(source='user.email', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+
     class Meta:
         model = Perfil
-        fields = ["limite_diario"]
+        fields = [
+            "limite_diario",
+            "email",
+            "first_name",
+        ]
 
     def validate_limite_diario(self, value):
         if value < 1 or value > 16:
