@@ -6,10 +6,33 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
 from datetime import datetime
+from drf_spectacular.utils import extend_schema, OpenApiExample
 
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
+
+    @extend_schema(
+        summary="Iniciar sesión",
+        description="Autentica al usuario mediante email y password. Retorna el token necesario para consumir la API protegida.",
+        examples=[
+            OpenApiExample(
+                "Login correcto",
+                value={
+                    "email": "juan@correo.com",
+                    "password": "123456"
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Respuesta exitosa",
+                value={
+                    "token": "abc123token..."
+                },
+                response_only=True,
+            ),
+        ],
+    )
 
     def post(self, request):
 
@@ -38,6 +61,29 @@ class LoginView(APIView):
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
+    @extend_schema(
+        summary="Registrar usuario",
+        description="Crea un nuevo usuario en el sistema. El email será usado como username para el login.",
+        examples=[
+            OpenApiExample(
+                "Registro de usuario",
+                value={
+                    "email": "juan@correo.com",
+                    "password": "123456",
+                    "first_name": "Juan",
+                    "last_name": "Serna"
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Respuesta exitosa",
+                value={
+                    "message": "Usuario creado correctamente"
+                },
+                response_only=True,
+            ),
+        ],
+    )
 
     def post(self, request):
 

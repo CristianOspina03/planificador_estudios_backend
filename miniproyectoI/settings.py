@@ -167,13 +167,22 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'Documentación oficial de la API del Planificador de Estudios',
     'VERSION': '1.0.0',
 
-    # 🔐 Esto es lo que habilita el botón Authorize
+    'SERVE_INCLUDE_SCHEMA': False,
+
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+    },
+
+    'COMPONENT_SPLIT_REQUEST': True,
+
+    # 🔐 Seguridad CORRECTA tipo HTTP Bearer
     'COMPONENTS': {
         'securitySchemes': {
             'TokenAuth': {
-                'type': 'apiKey',
-                'in': 'header',
-                'name': 'Authorization',
+                'type': 'http',
+                'scheme': 'bearer',
+                'bearerFormat': 'Token',
             }
         }
     },
