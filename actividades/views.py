@@ -13,6 +13,46 @@ from django.db.models import Sum
 
 from rest_framework.views import APIView
 
+from drf_spectacular.utils import (
+    extend_schema,
+    extend_schema_view,
+    OpenApiParameter,
+    OpenApiExample,
+)
+from drf_spectacular.types import OpenApiTypes
+
+@extend_schema_view(
+        list=extend_schema(
+            summary="Listar actividades",
+            description="Retorna todas las actividades del usuario autenticado. Permite filtros por fecha, búsqueda por texto y estado temporal.",
+            parameters=[
+                OpenApiParameter("fecha", OpenApiTypes.DATE, description="Filtrar por fecha exacta (YYYY-MM-DD)"),
+                OpenApiParameter("buscar", OpenApiTypes.STR, description="Buscar por título, curso o tipo"),
+                OpenApiParameter("estado", OpenApiTypes.STR, description="Filtrar por: proximas | vencidas"),
+            ],
+        ),
+        create=extend_schema(
+            summary="Crear actividad",
+            description="Crea una nueva actividad asociada al usuario autenticado.",
+        ),
+        retrieve=extend_schema(
+            summary="Detalle de actividad",
+            description="Obtiene la información completa de una actividad por su ID.",
+        ),
+        update=extend_schema(
+            summary="Actualizar actividad",
+            description="Actualiza todos los campos de una actividad.",
+        ),
+        partial_update=extend_schema(
+            summary="Editar actividad",
+            description="Actualiza parcialmente una actividad.",
+        ),
+        destroy=extend_schema(
+            summary="Eliminar actividad",
+            description="Elimina una actividad del usuario.",
+        ),
+    )
+
 class ActividadViewSet(ModelViewSet):
 
     serializer_class = ActividadSerializer
@@ -59,6 +99,10 @@ class ActividadViewSet(ModelViewSet):
         return queryset
 
     # ✅ US-04 y US-05 — Vista REAL /hoy basada en SUBTAREAS
+    @extend_schema(
+        summary="Vista inteligente del día",
+        description="Organiza las subtareas pendientes en tres grupos: vencidas, hoy y próximas. Calcula además si el usuario supera su límite diario de horas.",
+    )
     @action(detail=False, methods=["get"])
     def hoy(self, request):
 
@@ -112,6 +156,10 @@ class ActividadViewSet(ModelViewSet):
         })
 
     # ✅ Progreso de actividad
+    @extend_schema(
+        summary="Progreso de la actividad",
+        description="Calcula el porcentaje de subtareas completadas de una actividad.",
+    )
     @action(detail=True, methods=["get"])
     def progreso(self, request, pk=None):
 
@@ -127,7 +175,11 @@ class ActividadViewSet(ModelViewSet):
             "completadas": completas,
             "progreso": porcentaje
         })
-
+    
+    @extend_schema(
+        summary="Progreso de la actividad",
+        description="Calcula el porcentaje de subtareas completadas de una actividad.",
+    )
     @action(detail=True, methods=["patch"])
     def reprogramar(self, request, pk=None):
         actividad = self.get_object()
@@ -192,7 +244,11 @@ class ActividadViewSet(ModelViewSet):
             "modo": "subtareas",
             "mensaje": "Subtareas reprogramadas correctamente"
         })
-
+    
+    @extend_schema(
+        summary="Progreso de la actividad",
+        description="Calcula el porcentaje de subtareas completadas de una actividad.",
+    )
     @action(detail=True, methods=["patch"])
     def auto_reprogramar(self, request, pk=None):
         actividad = self.get_object()
@@ -239,6 +295,10 @@ class ActividadViewSet(ModelViewSet):
             "mensaje": "Se movió al primer día que no supera el límite diario"
         })
     # 📅 Eventos para calendario
+    @extend_schema(
+        summary="Eventos para calendario",
+        description="Retorna todas las actividades y subtareas en formato de eventos para ser usados en un calendario.",
+    )
     @action(detail=False, methods=["get"])
     def calendario(self, request):
 
@@ -272,6 +332,14 @@ class ActividadViewSet(ModelViewSet):
 
         return Response(eventos)
     
+@extend_schema_view(
+    list=extend_schema(summary="Listar subtareas del usuario"),
+    create=extend_schema(summary="Crear subtarea asociada a una actividad"),
+    retrieve=extend_schema(summary="Detalle de subtarea"),
+    update=extend_schema(summary="Actualizar subtarea"),
+    partial_update=extend_schema(summary="Editar subtarea"),
+    destroy=extend_schema(summary="Eliminar subtarea"),
+)    
 class SubtareaViewSet(ModelViewSet):
     queryset = Subtarea.objects.all()
     serializer_class = SubtareaSerializer
@@ -285,11 +353,26 @@ class SubtareaViewSet(ModelViewSet):
 class LimiteDiarioView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Obtener perfil del usuario",
+        description="Retorna nombre, correo y límite diario de horas configurado por el usuario.",
+    )
     def get(self, request):
         perfil = Perfil.objects.get(user=request.user)
         serializer = PerfilSerializer(perfil)
         return Response(serializer.data)
-
+    
+    @extend_schema(
+        summary="Actualizar límite diario",
+        description="Permite modificar el límite diario de horas de estudio del usuario.",
+        examples=[
+            OpenApiExample(
+                "Actualizar límite",
+                value={"limite_diario": 6},
+                request_only=True,
+            )
+        ],
+    )
     def patch(self, request):
         perfil = Perfil.objects.get(user=request.user)
         serializer = PerfilSerializer(
