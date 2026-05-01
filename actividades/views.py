@@ -326,7 +326,8 @@ class ActividadViewSet(ModelViewSet):
                     "title": f"{sub.titulo} • {sub.horas}h",
                     "date": sub.fecha_objetivo,
                     "extendedProps": {
-                        "tipo": "subtarea"
+                        "tipo": "subtarea",
+                        "actividad_id": sub.actividad.id 
                     }
                 })
 
