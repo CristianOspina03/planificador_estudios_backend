@@ -4,7 +4,11 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.decorators import api_view
+from .models import Subtarea, AvanceSubtarea
 from datetime import date
+
+
 
 from .models import Actividad, Subtarea, Perfil
 from .serializers import ActividadSerializer, SubtareaSerializer, PerfilSerializer
@@ -382,3 +386,30 @@ class LimiteDiarioView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+# NUEVO ENDPOINT
+@api_view(["POST"])
+def registrar_avance(request, id):
+    try:
+        subtarea = Subtarea.objects.get(id=id)
+
+        estado = request.data.get("estado")
+        nota = request.data.get("nota")
+
+        AvanceSubtarea.objects.create(
+            subtarea=subtarea,
+            estado=estado,
+            nota=nota
+        )
+
+        if estado == "hecho":
+            subtarea.completada = True
+        elif estado == "deshacer":
+            subtarea.completada = False
+
+        subtarea.save()
+
+        return Response({"ok": True})
+
+    except Subtarea.DoesNotExist:
+        return Response({"error": "Subtarea no existe"}, status=404)

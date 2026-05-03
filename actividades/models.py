@@ -44,7 +44,21 @@ class Subtarea(models.Model):
     def __str__(self):
         return self.titulo
 
+class AvanceSubtarea(models.Model):
+    ESTADOS = [
+        ("hecho", "Hecho"),
+        ("pospuesto", "Pospuesto"),
+        ("deshacer", "Deshacer"),
+    ]
 
+    subtarea = models.ForeignKey("Subtarea", on_delete=models.CASCADE, related_name="avances")
+    estado = models.CharField(max_length=20, choices=ESTADOS)
+    nota = models.TextField(blank=True, null=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.subtarea.titulo} - {self.estado}"
+    
 class Perfil(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     limite_diario = models.IntegerField(default=6)
