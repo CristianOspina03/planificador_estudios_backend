@@ -2,8 +2,13 @@
 from rest_framework import serializers
 from .models import Actividad, Subtarea, Perfil
 from datetime import datetime
+from .models import AvanceSubtarea
 
-
+class AvanceSubtareaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AvanceSubtarea
+        fields = "__all__"
+        
 class SubtareaSerializer(serializers.ModelSerializer):
     actividad_id = serializers.IntegerField(source="actividad.id", read_only=True)
     actividad_titulo = serializers.CharField(source="actividad.titulo", read_only=True)
@@ -32,6 +37,8 @@ class SubtareaSerializer(serializers.ModelSerializer):
 
         return data
 class SubtareaNestedSerializer(serializers.ModelSerializer):
+
+    avances = AvanceSubtareaSerializer(many=True, read_only=True)
 
     class Meta:
         model = Subtarea
@@ -122,3 +129,4 @@ class PerfilSerializer(serializers.ModelSerializer):
                 "El límite debe estar entre 1 y 16 horas."
             )
         return value
+    
