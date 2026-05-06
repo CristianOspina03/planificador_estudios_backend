@@ -20,41 +20,41 @@ class SubtareaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subtarea
         fields = "__all__"
-        def validate(self, data):
-            request = self.context.get("request")
-            user = request.user
 
-            fecha = data.get("fecha_objetivo")
-            horas = data.get("horas")
+    def validate(self, data):
+        request = self.context.get("request")
+        user = request.user
 
-            if fecha and horas:
-                limite = Perfil.objects.get(user=user).limite_diario
+        fecha = data.get("fecha_objetivo")
+        horas = data.get("horas")
 
-                queryset = Subtarea.objects.filter(
-                    actividad__usuario=user,
-                    fecha_objetivo=fecha,
-                    completada=False
-                )
+        if fecha and horas:
+            limite = Perfil.objects.get(user=user).limite_diario
 
-                # 🔥 CLAVE: excluir la misma subtarea si estamos editando
-                if self.instance:
-                    queryset = queryset.exclude(id=self.instance.id)
+            queryset = Subtarea.objects.filter(
+                actividad__usuario=user,
+                fecha_objetivo=fecha,
+                completada=False
+            )
 
-                horas_actuales = queryset.aggregate(
-                    total=Sum("horas")
-                )["total"] or 0
+            if self.instance:
+                queryset = queryset.exclude(id=self.instance.id)
 
-                if (horas_actuales + horas) > limite:
-                    raise serializers.ValidationError({
-                        "sobrecarga": True,
-                        "mensaje": "Se supera el límite diario",
-                        "horas_actuales": horas_actuales,
-                        "horas_nuevas": horas,
-                        "limite": limite,
-                        "exceso": (horas_actuales + horas) - limite
-                    })
+            horas_actuales = queryset.aggregate(
+                total=Sum("horas")
+            )["total"] or 0
 
-            return data
+            if (horas_actuales + horas) > limite:
+                raise serializers.ValidationError({
+                    "sobrecarga": True,
+                    "mensaje": "Se supera el límite diario",
+                    "horas_actuales": horas_actuales,
+                    "horas_nuevas": horas,
+                    "limite": limite,
+                    "exceso": (horas_actuales + horas) - limite
+                })
+
+        return data
 class SubtareaNestedSerializer(serializers.ModelSerializer):
 
     avances = AvanceSubtareaSerializer(many=True, read_only=True)
@@ -91,6 +91,9 @@ class ActividadSerializer(serializers.ModelSerializer):
             "usuario": {"read_only": True}
         }
     def validate(self, data):
+        request = self.context.get("request")
+        user = request.user
+
         hora_inicio = data.get("hora_inicio")
         hora_fin = data.get("hora_fin")
 
@@ -99,6 +102,33 @@ class ActividadSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "La hora_fin debe ser mayor que la hora_inicio."
                 )
+
+        #  VALIDAR SUBTAREAS
+        subtareas = self.initial_data.get("subtareas", [])
+
+        for sub in subtareas:
+            fecha = sub.get("fecha_objetivo")
+            horas = sub.get("horas")
+
+            if fecha and horas:
+                limite = Perfil.objects.get(user=user).limite_diario
+
+                horas_actuales = Subtarea.objects.filter(
+                    actividad__usuario=user,
+                    fecha_objetivo=fecha,
+                    completada=False
+                ).aggregate(total=Sum("horas"))["total"] or 0
+
+                if (horas_actuales + float(horas)) > limite:
+                    raise serializers.ValidationError({
+                        "sobrecarga": True,
+                        "mensaje": "Se supera el límite diario",
+                        "horas_actuales": horas_actuales,
+                        "horas_nuevas": horas,
+                        "limite": limite,
+                        "exceso": (horas_actuales + float(horas)) - limite
+                    })
+
         return data
 
     def create(self, validated_data):
