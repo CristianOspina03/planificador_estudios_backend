@@ -146,7 +146,6 @@ class ActividadSerializer(serializers.ModelSerializer):
         return actividad
 
     def update(self, instance, validated_data):
-
         subtareas_data = validated_data.pop("subtareas", None)
 
         for attr, value in validated_data.items():
@@ -158,7 +157,12 @@ class ActividadSerializer(serializers.ModelSerializer):
             instance.subtareas.all().delete()
 
             for sub in subtareas_data:
-                Subtarea.objects.create(actividad=instance, **sub)
+                serializer = SubtareaSerializer(
+                    data={**sub, "actividad": instance.id},
+                    context=self.context
+                )
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
 
         return instance
 
