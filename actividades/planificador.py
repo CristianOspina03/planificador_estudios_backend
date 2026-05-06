@@ -24,7 +24,7 @@ def analizar_sobrecarga(user, fecha, horas_nuevas, excluir_subtarea_id=None):
 
     exceso = total - limite
 
-    recomendaciones = generar_recomendaciones(
+    recomendaciones = generar_recomendaciones_sobrecarga(
         user, fecha, exceso, qs, limite
     )
 
@@ -35,6 +35,50 @@ def analizar_sobrecarga(user, fecha, horas_nuevas, excluir_subtarea_id=None):
         "horas_actuales": horas_actuales,
         "recomendaciones": recomendaciones
     }
+def generar_recomendaciones_sobrecarga(user, fecha_conflicto, exceso, subtareas_dia, limite):
+    recomendaciones = []
+
+    # Día con espacio libre
+    fecha = fecha_conflicto + timedelta(days=1)
+
+    for _ in range(7):
+        horas_dia = Subtarea.objects.filter(
+            actividad__usuario=user,
+            fecha_objetivo=fecha,
+            completada=False
+        ).aggregate(total=Sum("horas"))["total"] or 0
+
+        if horas_dia + exceso <= limite:
+            recomendaciones.append({
+                "tipo": "mover_a_otro_dia",
+                "fecha_sugerida": fecha,
+                "horas_libres": limite - horas_dia,
+                "razon": "Ese día tiene disponibilidad suficiente"
+            })
+            break
+
+        fecha += timedelta(days=1)
+
+    # Subtarea más pesada
+    pesada = subtareas_dia.order_by("-horas").first()
+    if pesada:
+        recomendaciones.append({
+            "tipo": "reducir_horas",
+            "subtarea_id": pesada.id,
+            "titulo": pesada.titulo,
+            "horas_actuales": pesada.horas,
+            "sugerir_horas": max(1, pesada.horas - exceso),
+            "razon": "Es la subtarea que más carga genera ese día"
+        })
+
+    # Aumentar límite
+    recomendaciones.append({
+        "tipo": "aumentar_limite",
+        "sugerir_limite": limite + exceso,
+        "razon": "Con ese nuevo límite no habría conflicto"
+    })
+
+    return recomendaciones
 
 def generar_recomendaciones(user):
     hoy = date.today()
