@@ -376,6 +376,9 @@ class SubtareaViewSet(ModelViewSet):
             actividad__usuario=self.request.user
         )
     
+    def get_serializer_context(self):
+        return {"request": self.request}
+    
 class LimiteDiarioView(APIView):
     permission_classes = [IsAuthenticated]
 
