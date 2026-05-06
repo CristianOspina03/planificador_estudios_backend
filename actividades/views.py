@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
@@ -8,7 +8,7 @@ from rest_framework.decorators import api_view
 from .models import Subtarea, AvanceSubtarea
 from datetime import date
 
-
+from .planificador import analizar_sobrecarga, generar_recomendaciones
 
 from .models import Actividad, Subtarea, Perfil
 from .serializers import ActividadSerializer, SubtareaSerializer, PerfilSerializer
@@ -141,18 +141,17 @@ class ActividadViewSet(ModelViewSet):
             fecha_objetivo__gt=hoy
         ).order_by("fecha_objetivo", "horas")
 
-        # 🔥 NUEVO: cálculo de horas
-        horas_hoy = para_hoy.aggregate(
-            total=Sum("horas")
-        )["total"] or 0
+        resultado = analizar_sobrecarga(
+            user=request.user,
+            fecha=hoy,
+            horas_nuevas=0  # solo queremos saber el estado del día
+        )
 
-        limite = Perfil.objects.get(user=request.user).limite_diario
-
-        sobrecarga = horas_hoy > limite
+        sobrecarga = resultado["sobrecarga"]
+        limite = resultado["limite"]
 
         return Response({
             "resumen": {
-                "horas_hoy": horas_hoy,
                 "limite": limite,
                 "sobrecarga": sobrecarga
             },
@@ -192,9 +191,6 @@ class ActividadViewSet(ModelViewSet):
         actividad = self.get_object()
         nueva_fecha = request.data.get("fecha")
         modo = request.data.get("modo", "actividad")  
-        # "actividad" | "subtareas"
-
-        limite = Perfil.objects.get(user=request.user).limite_diario
 
         # 🔹 SOLO MOVER ACTIVIDAD (sin tocar subtareas)
         if modo == "actividad":
@@ -215,30 +211,14 @@ class ActividadViewSet(ModelViewSet):
             total=Sum("horas")
         )["total"] or 0
 
-        horas_dia_destino = Subtarea.objects.filter(
-            actividad__usuario=request.user,
-            fecha_objetivo=nueva_fecha,
-            completada=False
-        ).aggregate(total=Sum("horas"))["total"] or 0
+        resultado = analizar_sobrecarga(
+            user=request.user,
+            fecha=nueva_fecha,
+            horas_nuevas=horas_subtareas
+        )
 
-        conflicto = (horas_dia_destino + horas_subtareas) > limite
-
-        if conflicto:
-            return Response({
-                "conflicto": True,
-                "mensaje": "Sobrecarga detectada",
-                "horas_actuales_dia": horas_dia_destino,
-                "horas_a_mover": horas_subtareas,
-                "limite": limite,
-                "exceso": (horas_dia_destino + horas_subtareas) - limite,
-
-                # 🔥 OPCIONES (UX CLAVE)
-                "opciones": [
-                    "Mover solo parte de las subtareas",
-                    "Mover al siguiente día disponible",
-                    "Reducir carga de horas"
-                ]
-            })
+        if resultado["sobrecarga"]:
+            return Response(resultado)
 
         # ✅ SIN CONFLICTO → mover todo
         subtareas.update(fecha_objetivo=nueva_fecha)
@@ -260,13 +240,6 @@ class ActividadViewSet(ModelViewSet):
     def auto_reprogramar(self, request, pk=None):
         actividad = self.get_object()
 
-        #  evitar error si no hay perfil
-        perfil = Perfil.objects.filter(user=request.user).first()
-        if not perfil:
-            return Response({"error": "Perfil no encontrado"}, status=400)
-
-        limite = perfil.limite_diario
-
         fecha = max(date.today(), actividad.fecha)
         dias_revisados = []
 
@@ -279,18 +252,20 @@ class ActividadViewSet(ModelViewSet):
         contador = 0
 
         while contador < max_dias:
-            horas_dia = Subtarea.objects.filter(
-                actividad__usuario=request.user,
-                fecha_objetivo=fecha,
-                completada=False
-            ).exclude(actividad=actividad).aggregate(total=Sum("horas"))["total"] or 0
+            resultado = analizar_sobrecarga(
+                user=request.user,
+                fecha=fecha,
+                horas_nuevas=horas_actividad
+            )
 
             dias_revisados.append({
                 "fecha": fecha,
-                "horas_en_dia": horas_dia
+                "sobrecarga": resultado["sobrecarga"],
+                "horas_actuales": resultado.get("horas_actuales", 0),
+                "limite": resultado.get("limite", 0),
             })
 
-            if (horas_dia + horas_actividad) <= limite:
+            if not resultado["sobrecarga"]:
                 break
 
             fecha += timedelta(days=1)
@@ -315,7 +290,7 @@ class ActividadViewSet(ModelViewSet):
             "ok": True,
             "nueva_fecha": fecha,
             "horas_actividad": horas_actividad,
-            "limite": limite,
+            "limite": resultado["limite"],
             "analisis": dias_revisados,
             "mensaje": "Se movió al primer día que no supera el límite diario"
         })
@@ -410,8 +385,21 @@ class LimiteDiarioView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+    
+@extend_schema(
+    summary="Recomendaciones inteligentes",
+    description="Analiza el estado actual del usuario y genera recomendaciones automáticas basadas en carga, vencimientos y distribución de horas.",
+)
+@action(detail=False, methods=["get"])
+def recomendaciones(self, request):
+    data = generar_recomendaciones(request.user)
+    return Response(data)
 
 # NUEVO ENDPOINT
+@extend_schema(
+    summary="Registrar avance de subtarea",
+    description="Marca una subtarea como hecha o deshecha y guarda una nota de avance."
+)
 @api_view(["POST"])
 def registrar_avance(request, id):
     try:

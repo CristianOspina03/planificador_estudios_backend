@@ -3,6 +3,7 @@ from rest_framework import serializers
 from .models import Actividad, Subtarea, Perfil
 from datetime import datetime
 from .models import AvanceSubtarea
+from .planificador import analizar_sobrecarga
 from django.db.models import Sum
 
 class AvanceSubtareaSerializer(serializers.ModelSerializer):
@@ -29,30 +30,15 @@ class SubtareaSerializer(serializers.ModelSerializer):
         horas = data.get("horas")
 
         if fecha and horas:
-            limite = Perfil.objects.get(user=user).limite_diario
-
-            queryset = Subtarea.objects.filter(
-                actividad__usuario=user,
-                fecha_objetivo=fecha,
-                completada=False
+            resultado = analizar_sobrecarga(
+                user=user,
+                fecha=fecha,
+                horas_nuevas=horas,
+                excluir_subtarea_id=self.instance.id if self.instance else None
             )
 
-            if self.instance:
-                queryset = queryset.exclude(id=self.instance.id)
-
-            horas_actuales = queryset.aggregate(
-                total=Sum("horas")
-            )["total"] or 0
-
-            if (horas_actuales + horas) > limite:
-                raise serializers.ValidationError({
-                    "sobrecarga": True,
-                    "mensaje": "Se supera el límite diario",
-                    "horas_actuales": horas_actuales,
-                    "horas_nuevas": horas,
-                    "limite": limite,
-                    "exceso": (horas_actuales + horas) - limite
-                })
+            if resultado["sobrecarga"]:
+                raise serializers.ValidationError(resultado)
 
         return data
 class SubtareaNestedSerializer(serializers.ModelSerializer):
@@ -103,31 +89,31 @@ class ActividadSerializer(serializers.ModelSerializer):
                     "La hora_fin debe ser mayor que la hora_inicio."
                 )
 
-        #  VALIDAR SUBTAREAS
+        # VALIDAR SUBTAREAS CON EL PLANIFICADOR
         subtareas = self.initial_data.get("subtareas", [])
+
+        # VALIDAR SUBTAREAS CON ACUMULADO POR FECHA (CRÍTICO)
+        acumulado_por_fecha = {}
 
         for sub in subtareas:
             fecha = sub.get("fecha_objetivo")
-            horas = sub.get("horas")
+            horas = float(sub.get("horas", 0))
 
-            if fecha and horas:
-                limite = Perfil.objects.get(user=user).limite_diario
+            if not fecha or not horas:
+                continue
 
-                horas_actuales = Subtarea.objects.filter(
-                    actividad__usuario=user,
-                    fecha_objetivo=fecha,
-                    completada=False
-                ).aggregate(total=Sum("horas"))["total"] or 0
+            acumulado_por_fecha.setdefault(fecha, 0)
+            acumulado_por_fecha[fecha] += horas
 
-                if (horas_actuales + float(horas)) > limite:
-                    raise serializers.ValidationError({
-                        "sobrecarga": True,
-                        "mensaje": "Se supera el límite diario",
-                        "horas_actuales": horas_actuales,
-                        "horas_nuevas": horas,
-                        "limite": limite,
-                        "exceso": (horas_actuales + float(horas)) - limite
-                    })
+        for fecha, horas_totales in acumulado_por_fecha.items():
+            resultado = analizar_sobrecarga(
+                user=user,
+                fecha=fecha,
+                horas_nuevas=horas_totales
+            )
+
+            if resultado["sobrecarga"]:
+                raise serializers.ValidationError(resultado)
 
         return data
 
