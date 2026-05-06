@@ -24,7 +24,13 @@ def analizar_sobrecarga(user, fecha, horas_nuevas, excluir_subtarea_id=None):
     total = horas_actuales + horas_nuevas
 
     if total <= limite:
-        return {"sobrecarga": False}
+        return {
+            "sobrecarga": False,
+            "limite": limite,
+            "horas_actuales": horas_actuales,
+            "exceso": 0,
+            "recomendaciones": []
+        }
 
     exceso = total - limite
 
