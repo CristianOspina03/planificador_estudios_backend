@@ -1,9 +1,13 @@
 # planificador.py
 from django.db.models import Sum
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from .models import Subtarea, Perfil, Actividad
 
 def analizar_sobrecarga(user, fecha, horas_nuevas, excluir_subtarea_id=None):
+
+    if isinstance(fecha_conflicto, str):
+        fecha_conflicto = datetime.strptime(fecha_conflicto, "%Y-%m-%d").date()
+
     perfil = Perfil.objects.get(user=user)
     limite = perfil.limite_diario
 
@@ -36,6 +40,8 @@ def analizar_sobrecarga(user, fecha, horas_nuevas, excluir_subtarea_id=None):
         "recomendaciones": recomendaciones
     }
 def generar_recomendaciones_sobrecarga(user, fecha_conflicto, exceso, subtareas_dia, limite):
+    if isinstance(fecha_conflicto, str):
+        fecha_conflicto = datetime.strptime(fecha_conflicto, "%Y-%m-%d").date()
     recomendaciones = []
 
     # Día con espacio libre
