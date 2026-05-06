@@ -136,7 +136,12 @@ class ActividadSerializer(serializers.ModelSerializer):
         actividad = Actividad.objects.create(**validated_data)
 
         for sub in subtareas_data:
-            Subtarea.objects.create(actividad=actividad, **sub)
+            serializer = SubtareaSerializer(
+                data={**sub, "actividad": actividad.id},
+                context=self.context
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
 
         return actividad
 
