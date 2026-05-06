@@ -176,7 +176,7 @@ SPECTACULAR_SETTINGS = {
 
     'COMPONENT_SPLIT_REQUEST': True,
 
-    # 🔐 Seguridad CORRECTA tipo HTTP Bearer
+    # 🔐 Seguridad tipo HTTP Bearer
     'COMPONENTS': {
         'securitySchemes': {
             'TokenAuth': {
