@@ -3,6 +3,7 @@ from rest_framework import serializers
 from .models import Actividad, Subtarea, Perfil
 from datetime import datetime
 from .models import AvanceSubtarea
+from django.db.models import Sum
 
 class AvanceSubtareaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -19,23 +20,41 @@ class SubtareaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subtarea
         fields = "__all__"
-    def validate(self, data):
-        if "titulo" in data and not data.get("titulo"):
-            raise serializers.ValidationError(
-                "El nombre de la subtarea es obligatorio."
-            )
+        def validate(self, data):
+            request = self.context.get("request")
+            user = request.user
 
-        if "horas" in data and data.get("horas", 0) <= 0:
-            raise serializers.ValidationError(
-                "Las horas de una subtarea deben ser mayores a 0."
-            )
+            fecha = data.get("fecha_objetivo")
+            horas = data.get("horas")
 
-        if "fecha_objetivo" in data and not data.get("fecha_objetivo"):
-            raise serializers.ValidationError(
-                "La fecha objetivo es obligatoria."
-            )
+            if fecha and horas:
+                limite = Perfil.objects.get(user=user).limite_diario
 
-        return data
+                queryset = Subtarea.objects.filter(
+                    actividad__usuario=user,
+                    fecha_objetivo=fecha,
+                    completada=False
+                )
+
+                # 🔥 CLAVE: excluir la misma subtarea si estamos editando
+                if self.instance:
+                    queryset = queryset.exclude(id=self.instance.id)
+
+                horas_actuales = queryset.aggregate(
+                    total=Sum("horas")
+                )["total"] or 0
+
+                if (horas_actuales + horas) > limite:
+                    raise serializers.ValidationError({
+                        "sobrecarga": True,
+                        "mensaje": "Se supera el límite diario",
+                        "horas_actuales": horas_actuales,
+                        "horas_nuevas": horas,
+                        "limite": limite,
+                        "exceso": (horas_actuales + horas) - limite
+                    })
+
+            return data
 class SubtareaNestedSerializer(serializers.ModelSerializer):
 
     avances = AvanceSubtareaSerializer(many=True, read_only=True)
