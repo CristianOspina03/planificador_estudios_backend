@@ -4,7 +4,11 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.decorators import api_view
+from .models import Subtarea, AvanceSubtarea
 from datetime import date
+
+
 
 from .models import Actividad, Subtarea, Perfil
 from .serializers import ActividadSerializer, SubtareaSerializer, PerfilSerializer
@@ -57,6 +61,9 @@ class ActividadViewSet(ModelViewSet):
 
     serializer_class = ActividadSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_serializer_context(self):
+        return {"request": self.request}
 
     def perform_create(self, serializer):
         serializer.save(usuario=self.request.user)
@@ -253,21 +260,30 @@ class ActividadViewSet(ModelViewSet):
     def auto_reprogramar(self, request, pk=None):
         actividad = self.get_object()
 
-        limite = Perfil.objects.get(user=request.user).limite_diario
+        #  evitar error si no hay perfil
+        perfil = Perfil.objects.filter(user=request.user).first()
+        if not perfil:
+            return Response({"error": "Perfil no encontrado"}, status=400)
 
-        fecha = date.today()
+        limite = perfil.limite_diario
+
+        fecha = max(date.today(), actividad.fecha)
         dias_revisados = []
 
         horas_actividad = actividad.subtareas.filter(
             completada=False
         ).aggregate(total=Sum("horas"))["total"] or 0
 
-        while True:
+        # límite de búsqueda
+        max_dias = 30
+        contador = 0
+
+        while contador < max_dias:
             horas_dia = Subtarea.objects.filter(
                 actividad__usuario=request.user,
                 fecha_objetivo=fecha,
                 completada=False
-            ).aggregate(total=Sum("horas"))["total"] or 0
+            ).exclude(actividad=actividad).aggregate(total=Sum("horas"))["total"] or 0
 
             dias_revisados.append({
                 "fecha": fecha,
@@ -278,7 +294,16 @@ class ActividadViewSet(ModelViewSet):
                 break
 
             fecha += timedelta(days=1)
+            contador += 1
 
+        #  no encontró día válido
+        if contador == max_dias:
+            return Response({
+                "error": "No se encontró un día disponible",
+                "mensaje": "Reduce horas o divide la actividad"
+            }, status=400)
+
+        #  mover subtareas
         actividad.subtareas.filter(completada=False).update(
             fecha_objetivo=fecha
         )
@@ -351,6 +376,9 @@ class SubtareaViewSet(ModelViewSet):
             actividad__usuario=self.request.user
         )
     
+    def get_serializer_context(self):
+        return {"request": self.request}
+    
 class LimiteDiarioView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -382,3 +410,30 @@ class LimiteDiarioView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+# NUEVO ENDPOINT
+@api_view(["POST"])
+def registrar_avance(request, id):
+    try:
+        subtarea = Subtarea.objects.get(id=id)
+
+        estado = request.data.get("estado")
+        nota = request.data.get("nota")
+
+        AvanceSubtarea.objects.create(
+            subtarea=subtarea,
+            estado=estado,
+            nota=nota
+        )
+
+        if estado == "hecho":
+            subtarea.completada = True
+        elif estado == "deshacer":
+            subtarea.completada = False
+
+        subtarea.save()
+
+        return Response({"ok": True})
+
+    except Subtarea.DoesNotExist:
+        return Response({"error": "Subtarea no existe"}, status=404)
