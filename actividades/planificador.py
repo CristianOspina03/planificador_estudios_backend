@@ -5,8 +5,8 @@ from .models import Subtarea, Perfil, Actividad
 
 def analizar_sobrecarga(user, fecha, horas_nuevas, excluir_subtarea_id=None):
 
-    if isinstance(fecha_conflicto, str):
-        fecha_conflicto = datetime.strptime(fecha_conflicto, "%Y-%m-%d").date()
+    if isinstance(fecha, str):
+        fecha = datetime.strptime(fecha, "%Y-%m-%d").date()
 
     perfil = Perfil.objects.get(user=user)
     limite = perfil.limite_diario
