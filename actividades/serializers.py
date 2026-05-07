@@ -117,7 +117,7 @@ class ActividadSerializer(serializers.ModelSerializer):
                 )
 
         # VALIDAR SUBTAREAS CON EL PLANIFICADOR
-        subtareas = self.initial_data.get("subtareas", [])
+        subtareas = data.get("subtareas") or self.initial_data.get("subtareas", [])
 
         # VALIDAR SUBTAREAS CON ACUMULADO POR FECHA (CRÍTICO)
         acumulado_por_fecha = {}
@@ -129,8 +129,8 @@ class ActividadSerializer(serializers.ModelSerializer):
             if not fecha or not horas:
                 continue
 
-            acumulado_por_fecha.setdefault(fecha, 0)
-            acumulado_por_fecha[fecha] += horas
+            acumulado_por_fecha.setdefault(fecha, [])
+            acumulado_por_fecha[fecha].append(sub)
 
         for fecha, subs_dia in acumulado_por_fecha.items():
             horas_totales = sum(float(s.get("horas", 0)) for s in subs_dia)
