@@ -332,6 +332,15 @@ class ActividadViewSet(ModelViewSet):
                 })
 
         return Response(eventos)
+    @extend_schema(
+    summary="Recomendaciones inteligentes",
+    description="Analiza el estado actual del usuario y genera recomendaciones automáticas basadas en carga, vencimientos y distribución de horas.",
+    )
+    @action(detail=False, methods=["get"])
+    def recomendaciones(self, request):
+        data = generar_recomendaciones(request.user)
+        return Response(data)
+
     
 @extend_schema_view(
     list=extend_schema(summary="Listar subtareas del usuario"),
@@ -386,15 +395,6 @@ class LimiteDiarioView(APIView):
         serializer.save()
         return Response(serializer.data)
     
-@extend_schema(
-    summary="Recomendaciones inteligentes",
-    description="Analiza el estado actual del usuario y genera recomendaciones automáticas basadas en carga, vencimientos y distribución de horas.",
-)
-@action(detail=False, methods=["get"])
-def recomendaciones(self, request):
-    data = generar_recomendaciones(request.user)
-    return Response(data)
-
 # NUEVO ENDPOINT
 @extend_schema(
     summary="Registrar avance de subtarea",
