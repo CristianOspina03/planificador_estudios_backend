@@ -403,16 +403,18 @@ class LimiteDiarioView(APIView):
 @api_view(["POST"])
 def registrar_avance(request, id):
     try:
-        subtarea = Subtarea.objects.get(id=id)
+        subtarea = Subtarea.objects.get(
+            id=id,
+            actividad__usuario=request.user
+        )
 
         estado = request.data.get("estado")
         nota = request.data.get("nota")
 
-        AvanceSubtarea.objects.create(
-            subtarea=subtarea,
-            estado=estado,
-            nota=nota
-        )
+        if estado not in ["hecho", "pospuesto", "deshacer"]:
+            return Response({"error": "Estado inválido"}, status=400)
+
+        AvanceSubtarea.objects.create(subtarea=subtarea, estado=estado, nota=nota)
 
         if estado == "hecho":
             subtarea.completada = True
@@ -420,7 +422,6 @@ def registrar_avance(request, id):
             subtarea.completada = False
 
         subtarea.save()
-
         return Response({"ok": True})
 
     except Subtarea.DoesNotExist:

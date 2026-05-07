@@ -3,8 +3,8 @@ from rest_framework import serializers
 from .models import Actividad, Subtarea, Perfil
 from datetime import datetime
 from .models import AvanceSubtarea
-from .planificador import analizar_sobrecarga
 from django.db.models import Sum
+from .planificador import analizar_sobrecarga, _get_limite, _horas_en_fecha
 
 class AvanceSubtareaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -26,15 +26,42 @@ class SubtareaSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         user = request.user
 
-        fecha = data.get("fecha_objetivo")
-        horas = data.get("horas")
+        hora_inicio = data.get("hora_inicio")
+        hora_fin = data.get("hora_fin")
 
-        if fecha and horas:
+        if hora_inicio and hora_fin:
+            if hora_fin <= hora_inicio:
+                raise serializers.ValidationError(
+                    "La hora_fin debe ser mayor que la hora_inicio."
+                )
+
+        subtareas = self.initial_data.get("subtareas", [])
+
+        # Agrupar subtareas por fecha — guardar lista, no número
+        acumulado_por_fecha = {}
+        for sub in subtareas:
+            fecha = sub.get("fecha_objetivo")
+            horas = float(sub.get("horas", 0))
+            if not fecha or not horas:
+                continue
+            acumulado_por_fecha.setdefault(fecha, [])
+            acumulado_por_fecha[fecha].append(sub)
+
+        # Un solo análisis por fecha
+        for fecha, subs_dia in acumulado_por_fecha.items():
+            horas_totales = sum(float(s.get("horas", 0)) for s in subs_dia)
+            titulo_resumen = ", ".join(s.get("titulo", "") for s in subs_dia)
+
+            # Chequeo rápido antes de llamar al planificador completo
+            horas_actuales = _horas_en_fecha(user, fecha)
+            if horas_actuales + horas_totales <= _get_limite(user):
+                continue
+
             resultado = analizar_sobrecarga(
                 user=user,
                 fecha=fecha,
-                horas_nuevas=horas,
-                excluir_subtarea_id=self.instance.id if self.instance else None
+                horas_nuevas=horas_totales,
+                subtarea_nueva={"titulo": titulo_resumen}
             )
 
             if resultado["sobrecarga"]:
@@ -105,11 +132,18 @@ class ActividadSerializer(serializers.ModelSerializer):
             acumulado_por_fecha.setdefault(fecha, 0)
             acumulado_por_fecha[fecha] += horas
 
-        for fecha, horas_totales in acumulado_por_fecha.items():
+        for fecha, subs_dia in acumulado_por_fecha.items():
+            horas_totales = sum(float(s.get("horas", 0)) for s in subs_dia)
+            titulo_resumen = ", ".join(s.get("titulo", "") for s in subs_dia)
+            horas_actuales = _horas_en_fecha(user, fecha)  # importar el helper
+            if horas_actuales + horas_totales <= _get_limite(user):
+                continue  # no hay sobrecarga, saltar
+
             resultado = analizar_sobrecarga(
                 user=user,
                 fecha=fecha,
-                horas_nuevas=horas_totales
+                horas_nuevas=horas_totales,
+                subtarea_nueva={"titulo": titulo_resumen}
             )
 
             if resultado["sobrecarga"]:
@@ -139,16 +173,36 @@ class ActividadSerializer(serializers.ModelSerializer):
 
         instance.save()
 
-        if subtareas_data is not None:
-            instance.subtareas.all().delete()
+        # FIX #1: solo tocar subtareas si vienen explícitamente y no están vacías
+        if subtareas_data is not None and len(subtareas_data) > 0:
+            ids_a_conservar = []
 
-            for sub in subtareas_data:
-                serializer = SubtareaSerializer(
-                    data={**sub, "actividad": instance.id},
-                    context=self.context
-                )
-                serializer.is_valid(raise_exception=True)
-                serializer.save()
+            for sub_data in subtareas_data:
+                sub_id = sub_data.get("id")
+
+                if sub_id:
+                    # Editar subtarea existente preservando sus avances
+                    try:
+                        subtarea = instance.subtareas.get(id=sub_id)
+                        for attr, value in sub_data.items():
+                            if attr != "id":
+                                setattr(subtarea, attr, value)
+                        subtarea.save()
+                        ids_a_conservar.append(sub_id)
+                    except Subtarea.DoesNotExist:
+                        pass
+                else:
+                    # Crear nueva subtarea
+                    serializer = SubtareaSerializer(
+                        data={**sub_data, "actividad": instance.id},
+                        context=self.context
+                    )
+                    serializer.is_valid(raise_exception=True)
+                    nueva = serializer.save()
+                    ids_a_conservar.append(nueva.id)
+
+            # Eliminar solo las que el frontend quitó explícitamente
+            instance.subtareas.exclude(id__in=ids_a_conservar).delete()
 
         return instance
 
