@@ -192,7 +192,6 @@ class ActividadViewSet(ModelViewSet):
         nueva_fecha = request.data.get("fecha")
         modo = request.data.get("modo", "actividad")  
 
-        # 🔹 SOLO MOVER ACTIVIDAD (sin tocar subtareas)
         if modo == "actividad":
             actividad.fecha = nueva_fecha
             actividad.save()
@@ -200,11 +199,10 @@ class ActividadViewSet(ModelViewSet):
             return Response({
                 "ok": True,
                 "modo": "actividad",
-                "mensaje": "Fecha de actividad actualizada",
                 "actividad": self.get_serializer(actividad).data
             })
 
-        # 🔹 MOVER SUBTAREAS (inteligente)
+        # 🔹 mover subtareas inteligentemente
         subtareas = actividad.subtareas.filter(completada=False)
 
         horas_subtareas = subtareas.aggregate(
@@ -217,19 +215,17 @@ class ActividadViewSet(ModelViewSet):
             horas_nuevas=horas_subtareas
         )
 
+        # ❗ AQUÍ ESTÁ EL CAMBIO PROFESIONAL
         if resultado["sobrecarga"]:
-            return Response(resultado)
+            return Response(resultado, status=400)
 
-        # ✅ SIN CONFLICTO → mover todo
         subtareas.update(fecha_objetivo=nueva_fecha)
-
         actividad.fecha = nueva_fecha
         actividad.save()
 
         return Response({
             "ok": True,
             "modo": "subtareas",
-            "mensaje": "Subtareas reprogramadas correctamente"
         })
     
     @extend_schema(
@@ -241,13 +237,11 @@ class ActividadViewSet(ModelViewSet):
         actividad = self.get_object()
 
         fecha = max(date.today(), actividad.fecha)
-        dias_revisados = []
 
         horas_actividad = actividad.subtareas.filter(
             completada=False
         ).aggregate(total=Sum("horas"))["total"] or 0
 
-        # límite de búsqueda
         max_dias = 30
         contador = 0
 
@@ -258,27 +252,19 @@ class ActividadViewSet(ModelViewSet):
                 horas_nuevas=horas_actividad
             )
 
-            dias_revisados.append({
-                "fecha": fecha,
-                "sobrecarga": resultado["sobrecarga"],
-                "horas_actuales": resultado.get("horas_actuales", 0),
-                "limite": resultado.get("limite", 0),
-            })
-
+            # 👇 si encuentra día bueno, sale
             if not resultado["sobrecarga"]:
                 break
 
             fecha += timedelta(days=1)
             contador += 1
 
-        #  no encontró día válido
+        # ❗ NO encontró día → ESTO SIGUE SIENDO UNA SOBRECARGA
         if contador == max_dias:
-            return Response({
-                "error": "No se encontró un día disponible",
-                "mensaje": "Reduce horas o divide la actividad"
-            }, status=400)
+            # devolver el último análisis como conflicto real
+            return Response(resultado, status=400)
 
-        #  mover subtareas
+        # ✅ mover subtareas
         actividad.subtareas.filter(completada=False).update(
             fecha_objetivo=fecha
         )
@@ -289,10 +275,6 @@ class ActividadViewSet(ModelViewSet):
         return Response({
             "ok": True,
             "nueva_fecha": fecha,
-            "horas_actividad": horas_actividad,
-            "limite": resultado["limite"],
-            "analisis": dias_revisados,
-            "mensaje": "Se movió al primer día que no supera el límite diario"
         })
     # 📅 Eventos para calendario
     @extend_schema(
