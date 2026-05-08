@@ -153,11 +153,7 @@ def _generar_recomendaciones_sobrecarga(user, fecha_conflicto, horas_nuevas,
         recomendaciones.append({
             "tipo": "mover_a_otro_dia",
             "fecha_sugerida": f,
-            "horas_libres": dia_completo["horas_libres"],
-            "razon": (
-                f'Mueve "{nombre}" al {f.strftime("%A %d %b")} — '
-                f'tiene {dia_completo["horas_libres"]}h libres'
-            )
+            "horas_libres": dia_completo["horas_libres"]
         })
 
     # ── 2. Dividir en dos días ─────────────────────────────────────────
@@ -174,10 +170,6 @@ def _generar_recomendaciones_sobrecarga(user, fecha_conflicto, horas_nuevas,
                 "tipo": "dividir_en_dos_dias",
                 "parte_1": {"fecha": fecha_conflicto, "horas": horas_disponibles_hoy},
                 "parte_2": {"fecha": f2, "horas": horas_restantes},
-                "razon": (
-                    f'Estudia {horas_disponibles_hoy}h hoy y '
-                    f'{horas_restantes}h el {f2.strftime("%A %d %b")}'
-                )
             })
 
     # ── 3. Reducir horas (solo si caben aunque sea algunas) ───────────
@@ -187,7 +179,6 @@ def _generar_recomendaciones_sobrecarga(user, fecha_conflicto, horas_nuevas,
             "titulo": nombre,
             "horas_actuales": horas_nuevas,
             "sugerir_horas": horas_disponibles_hoy,
-            "razon": f'Reduce "{nombre}" a {horas_disponibles_hoy}h para que quepa hoy'
         })
 
     # ── 4. Vista de la semana — los próximos 7 días con espacio ───────
@@ -195,7 +186,7 @@ def _generar_recomendaciones_sobrecarga(user, fecha_conflicto, horas_nuevas,
         {
             "fecha": d["fecha"],
             "horas_libres": d["horas_libres"],
-            "cabe_completa": d["cabe_completa"]
+            "cabe_completa": d["cabe_completa"],
         }
         for d in dias_disponibles[:7]
     ]
@@ -203,7 +194,6 @@ def _generar_recomendaciones_sobrecarga(user, fecha_conflicto, horas_nuevas,
         recomendaciones.append({
             "tipo": "vista_semana",
             "dias": vista_semana,
-            "razon": "Estos son los próximos días con espacio disponible"
         })
 
     # ── 5. Aumentar límite — solo si es razonable y no hay mejor opción
@@ -212,7 +202,6 @@ def _generar_recomendaciones_sobrecarga(user, fecha_conflicto, horas_nuevas,
         recomendaciones.append({
             "tipo": "aumentar_limite",
             "sugerir_limite": int(limite_sugerido),
-            "razon": f"Sube tu límite a {int(limite_sugerido)}h para permitir este día"
         })
 
     return recomendaciones
@@ -253,11 +242,7 @@ def generar_recomendaciones(user):
                 }
                 for s in vencidas[:5]  # máximo 5 en el resumen
             ],
-            "dia_sugerido": mejor_dia["fecha"] if mejor_dia else None,
-            "mensaje": (
-                f"Tienes {vencidas.count()} subtarea(s) vencida(s). "
-                + (f"Podrías trabajarlas el {mejor_dia['fecha'].strftime('%A %d %b')}." if mejor_dia else "Revisa tu agenda.")
-            )
+            "dia_sugerido": mejor_dia["fecha"] if mejor_dia else None
         })
 
     # 🟠 2. Sobrecarga hoy — con qué mover y a dónde
@@ -286,17 +271,8 @@ def generar_recomendaciones(user):
                 "id": candidata.id,
                 "titulo": candidata.titulo,
                 "horas": candidata.horas,
-                "fecha_sugerida": dia_sugerido["fecha"] if dia_sugerido else None
-            } if candidata else None,
-            "mensaje": (
-                f"Hoy tienes {exceso}h de exceso. "
-                + (
-                    f'Considera mover "{candidata.titulo}" ({candidata.horas}h) '
-                    f'al {dia_sugerido["fecha"].strftime("%A %d %b")}.'
-                    if candidata and dia_sugerido else
-                    "Considera reprogramar alguna subtarea."
-                )
-            )
+                "fecha_sugerida": dia_sugerido["fecha"] if dia_sugerido else None,
+            }
         })
 
     # 🟡 3. Actividades pesadas — desglosadas por subtarea
@@ -313,10 +289,6 @@ def generar_recomendaciones(user):
                 "actividad_titulo": act.titulo,
                 "horas_total": horas_total,
                 "limite": limite,
-                "mensaje": (
-                    f'"{act.titulo}" tiene {horas_total}h en subtareas pendientes '
-                    f"(tu límite es {limite}h/día). Divide en más subtareas."
-                )
             })
 
     # 🟢 4. Espacio libre — próximos 3 días con hueco
@@ -335,11 +307,6 @@ def generar_recomendaciones(user):
                 {"fecha": d["fecha"], "horas_libres": d["horas_libres"]}
                 for d in dias_con_espacio[:3]
             ],
-            "mensaje": (
-                f'Tienes espacio libre en los próximos días. '
-                f'El {dias_con_espacio[0]["fecha"].strftime("%A")} tiene '
-                f'{dias_con_espacio[0]["horas_libres"]}h disponibles.'
-            )
         })
 
     return recomendaciones
