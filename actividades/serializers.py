@@ -24,44 +24,28 @@ class SubtareaSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         request = self.context.get("request")
+        if not request:
+            return data
+
         user = request.user
 
-        hora_inicio = data.get("hora_inicio")
-        hora_fin = data.get("hora_fin")
+        # En PATCH combinar con valores existentes del instance
+        fecha = data.get("fecha_objetivo")
+        horas = data.get("horas")
 
-        if hora_inicio and hora_fin:
-            if hora_fin <= hora_inicio:
-                raise serializers.ValidationError(
-                    "La hora_fin debe ser mayor que la hora_inicio."
-                )
+        if self.instance:
+            fecha = fecha or self.instance.fecha_objetivo
+            horas = horas if horas is not None else self.instance.horas
 
-        subtareas = self.initial_data.get("subtareas", [])
-
-        # Agrupar subtareas por fecha — guardar lista, no número
-        acumulado_por_fecha = {}
-        for sub in subtareas:
-            fecha = sub.get("fecha_objetivo")
-            horas = float(sub.get("horas", 0))
-            if not fecha or not horas:
-                continue
-            acumulado_por_fecha.setdefault(fecha, [])
-            acumulado_por_fecha[fecha].append(sub)
-
-        # Un solo análisis por fecha
-        for fecha, subs_dia in acumulado_por_fecha.items():
-            horas_totales = sum(float(s.get("horas", 0)) for s in subs_dia)
-            titulo_resumen = ", ".join(s.get("titulo", "") for s in subs_dia)
-
-            # Chequeo rápido antes de llamar al planificador completo
-            horas_actuales = _horas_en_fecha(user, fecha)
-            if horas_actuales + horas_totales <= _get_limite(user):
-                continue
-
+        if fecha and horas:
             resultado = analizar_sobrecarga(
                 user=user,
                 fecha=fecha,
-                horas_nuevas=horas_totales,
-                subtarea_nueva={"titulo": titulo_resumen}
+                horas_nuevas=horas,
+                excluir_subtarea_id=self.instance.id if self.instance else None,
+                subtarea_nueva={
+                    "titulo": data.get("titulo") or (self.instance.titulo if self.instance else "")
+                }
             )
 
             if resultado["sobrecarga"]:
